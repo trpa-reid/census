@@ -1,0 +1,63 @@
+---
+title: "census"
+author: "Reid Haefer"
+date: "10/18/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ 
+```{r}
+library(pacman)
+p_load(tidycensus, tidyverse,leaflet)
+census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
+options(tigris_use_cache = TRUE)
+```
+```{r}
+tract<-st_read("H:/census/data", "census_tracts") %>%
+  st_transform(tract, crs=4326)
+block_group<-st_read("H:/census/data", "block_groups")%>%
+  st_transform(tract, crs=4326)
+
+### ACS variables
+acs_var <- load_variables(2016, "acs5", cache = TRUE)
+```
+
+```{r}
+#means of transportation to work drive alone - B08301_003
+#means of transportation to work drive car/truck/van - B08301_002
+#means of transportation to work total - B08301_001
+#means of transportation to work walk -  B08301_019
+#means of transportation to work bicycle -  B08301_018
+#means of transportation to work carpool - B08301_004
+#means of transportation to work public transportation - B08301_010
+#means of transportation to work - worked at home - B08301_021
+# means of transportation to work - worked at home - B08301_020
+  nv <- get_acs(geography = "tract", year=2016, 
+                variables =  c("B08301_002","B08301_001","B08301_019", "B08301_018", "B08301_017", "B08301_010","B08301_021","B08301_020","B08301_016"), 
+                state = "NV", geometry = FALSE)
+  ca <- get_acs(geography = "tract", year=2016, 
+                variables = c("B08301_002","B08301_001", "B08301_019", "B08301_018","B08301_017", "B08301_010","B08301_021","B08301_020","B08301_016"), 
+                state = "CA", geometry= FALSE)
+  all.ca.nv<- data.frame(bind_rows(nv, ca))
+  data<-all.ca.nv  %>%
+    left_join(tract, by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    select(-geometry)
+  data %>% group_by(variable) %>% 
+    summarise(total=sum(estimate)) %>%
+    mutate(category=case_when(variable=="B08301_002" ~ "Drive to Work",
+                              variable=="B08301_001" ~ "Total Travel to Work",
+                              variable=="B08301_019" ~ "Walk to Work",
+                              variable=="B08301_018" ~ "Bike to Work",
+                              variable=="B08301_010" ~ "Public Transportation to Work",
+                              variable=="B08301_021" ~ "Worked at Home",
+                              variable=="B08301_020" ~ "Other",
+                              variable=="B08301_017" ~ "Motorcycle to Work",
+                              variable=="B08301_016" ~ "Taxi to Work")) %>%
+  filter(variable!= "B08301_001") %>%
+    mutate(total1=sum(total), percent=(total/total1)* 100)
+```
+
