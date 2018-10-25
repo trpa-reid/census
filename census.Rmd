@@ -1,63 +1,162 @@
 ---
 title: "census"
 author: "Reid Haefer"
-date: "10/18/2018"
-output: html_document
+date: "10-22-2018"
+output: 
+  html_document:
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
  
-```{r}
+```{r, warning=F,message=F}
 library(pacman)
-p_load(tidycensus, tidyverse,leaflet)
+p_load(tidycensus, tidyverse,leaflet, geojsonio, sf, tmap, tmaptools, DT)
 census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
 options(tigris_use_cache = TRUE)
 ```
-```{r}
-tract<-st_read("H:/census/data", "census_tracts") %>%
-  st_transform(tract, crs=4326)
-block_group<-st_read("H:/census/data", "block_groups")%>%
-  st_transform(tract, crs=4326)
+```{r, warning=F, message=F}
+#block_group<-geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2.geojson", what="sp") %>% st_as_sf()
 
-### ACS variables
+tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3.geojson", what="sp") %>%
+  st_as_sf()
+
+###### ACS variables
+decen_var <- load_variables(2010, "sf1", cache = TRUE)
+datatable(decen_var, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+
 acs_var <- load_variables(2016, "acs5", cache = TRUE)
-```
 
-```{r}
-#means of transportation to work drive alone - B08301_003
-#means of transportation to work drive car/truck/van - B08301_002
-#means of transportation to work total - B08301_001
-#means of transportation to work walk -  B08301_019
-#means of transportation to work bicycle -  B08301_018
-#means of transportation to work carpool - B08301_004
-#means of transportation to work public transportation - B08301_010
-#means of transportation to work - worked at home - B08301_021
-# means of transportation to work - worked at home - B08301_020
+datatable(acs_var, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+
+```
+## Housing Units
+
+```{r, message=F, warning=F}
+housing_units <- c(`housing units`= "B25001_001")
   nv <- get_acs(geography = "tract", year=2016, 
-                variables =  c("B08301_002","B08301_001","B08301_019", "B08301_018", "B08301_017", "B08301_010","B08301_021","B08301_020","B08301_016"), 
-                state = "NV", geometry = FALSE)
+                variables =  housing_units, 
+                state = "NV", geometry = TRUE )
   ca <- get_acs(geography = "tract", year=2016, 
-                variables = c("B08301_002","B08301_001", "B08301_019", "B08301_018","B08301_017", "B08301_010","B08301_021","B08301_020","B08301_016"), 
-                state = "CA", geometry= FALSE)
-  all.ca.nv<- data.frame(bind_rows(nv, ca))
+                variables = housing_units, 
+                state = "CA", geometry= TRUE)
+  all.ca.nv<- rbind(nv, ca)
   data<-all.ca.nv  %>%
-    left_join(tract, by="GEOID") %>%
+    left_join(data.frame(tract), by="GEOID") %>%
     filter(!is.na(STATEFP)) %>%
-    select(-geometry)
-  data %>% group_by(variable) %>% 
-    summarise(total=sum(estimate)) %>%
-    mutate(category=case_when(variable=="B08301_002" ~ "Drive to Work",
-                              variable=="B08301_001" ~ "Total Travel to Work",
-                              variable=="B08301_019" ~ "Walk to Work",
-                              variable=="B08301_018" ~ "Bike to Work",
-                              variable=="B08301_010" ~ "Public Transportation to Work",
-                              variable=="B08301_021" ~ "Worked at Home",
-                              variable=="B08301_020" ~ "Other",
-                              variable=="B08301_017" ~ "Motorcycle to Work",
-                              variable=="B08301_016" ~ "Taxi to Work")) %>%
-  filter(variable!= "B08301_001") %>%
-    mutate(total1=sum(total), percent=(total/total1)* 100)
+    select(GEOID, NAME.x, variable, estimate, moe, County)
 ```
 
+```{r, message=F, warning=F}
+tmap_mode("view")
+data %>% group_by(GEOID) %>% 
+  tm_shape() + tm_polygons()
+  
+```
+## HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2016 INFLATION-ADJUSTED DOLLARS)
+
+```{r, message=F, warning=F}
+median_income <- c(`less than 10K`= "B19001_002",
+                    `10-15K`= "B19001_003",
+                    `125-150K` = "B19001_015",
+                    `150-200K` = "B19001_016",
+                    `Over 200K` = "B19001_017")
+  nv <- get_acs(geography = "tract", year=2016, 
+                variables =  median_income, 
+                state = "NV", geometry = TRUE, summary_var = "B19001_001" )
+  ca <- get_acs(geography = "tract", year=2016, 
+                variables = median_income, summary_var = "B19001_001", 
+                state = "CA", geometry= TRUE)
+  all.ca.nv<- rbind(nv, ca)
+  data1<-all.ca.nv  %>%
+    left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County)
+```
+
+```{r, message=F, warning=F}
+tmap_mode("view")
+data1 %>% group_by(GEOID) %>% 
+  filter(variable=="125-150K") %>%
+  mutate(percent=paste0(round((estimate/summary_est)* 100, 1), "%")) %>%
+  tm_shape() + tm_polygons()
+  
+```
+
+## Percent of households that drive to work
+
+```{r, message=F, warning=F}
+work_transport <- c(Drive= "B08301_002",
+                    Walk= "B08301_019",
+                    Bike = "B08301_018",
+                    `Public Transport` = "B08301_010",
+                    `Work from Home` = "B08301_021",
+                    Other = "B08301_020",
+                    Motorcycle = "B08301_017", 
+                    Taxi = "B08301_016")
+  nv <- get_acs(geography = "tract", year=2016, 
+                variables =  work_transport, 
+                state = "NV", geometry = TRUE, summary_var = "B08301_001" )
+  ca <- get_acs(geography = "tract", year=2016, 
+                variables = work_transport, summary_var = "B08301_001", 
+                state = "CA", geometry= TRUE)
+  all.ca.nv<- rbind(nv, ca)
+  data2<-all.ca.nv  %>%
+    left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County)
+```
+
+```{r, message=F, warning=F}
+tmap_mode("view")
+data2 %>% group_by(GEOID) %>% 
+  filter(variable=="Drive") %>%
+  mutate(percent=paste0(round((estimate/summary_est)* 100, 1), "%")) %>%
+  tm_shape() + tm_polygons()
+  
+```
+
+## Travel time to work
+
+```{r, message=F, warning=F}
+travel_time_work <- c(`less than 5 min`= "B08303_002",
+                    `5-9 min`= "B08303_003",
+                    `10-14 min` = "B08303_004",
+                    `15-19 min` = "B08303_005",
+                    `20-24 min` = "B08303_006",
+                    `25-29 min` = "B08303_007",
+                    `30-34 min` = "B08303_008", 
+                    `35-39 min` = "B08303_009",
+                    `40-44 min` = "B08303_010",
+                    `45-59 min` = "B08303_011",
+                    `60-89 min` = "B08303_012",
+                    `90 min or more` = "B08303_013")
+  nv <- get_acs(geography = "tract", year=2016, 
+                variables =  travel_time_work, 
+                state = "NV", geometry = TRUE, summary_var = "B08303_001" )
+  ca <- get_acs(geography = "tract", year=2016, 
+                variables = travel_time_work, summary_var = "B08303_001", 
+                state = "CA", geometry= TRUE)
+  all.ca.nv<- rbind(nv, ca)
+  data3<-all.ca.nv  %>%
+    left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County)
+```
+
+```{r, message=F, warning=F}
+tmap_mode("view")
+data3 %>% group_by(GEOID) %>% 
+  filter(variable=="10-14 min") %>%
+  mutate(percent=paste0(round((estimate/summary_est)* 100, 1), "%")) %>%
+  tm_shape() + tm_polygons()
+  
+```
