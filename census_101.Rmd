@@ -1,0 +1,92 @@
+---
+title: "Using Census Data 101"
+author: "Tahoe Regional Planning Agency"
+date: "10-22-2018"
+output: 
+  html_document:
+    code_folding: hide
+    highlight: tango
+    number_sections: no
+    theme: flatly
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definitely source of demographic data but only is collected every ten years. The ACS is a program that provides data estimates on a one,three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered. While the Decennial Census only includes basic demographic data such as number of households and total population, the ACS includes many more data points that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that define that variable.
+
+
+```{r, warning=F, message=F, echo=F}
+library(pacman)
+p_load(tidycensus, tidyverse,leaflet, geojsonio, sf, tmap, tmaptools, DT)
+census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
+options(tigris_use_cache = TRUE)
+
+block_group<-geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2.geojson", what="sp") %>% st_as_sf()
+
+tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3.geojson", what="sp") %>%
+  st_as_sf()
+```
+
+## Summary Data for the TRPA region
+
+```{r, message=F, warning =F}
+ca <- get_decennial(geography="tract", variables= c("H010001","P035001", "P001001","H001001","H013002", "H013003", "H013004", "H013005", "H013006", "H013007", "H013008"), state= "CA", year= 2010, county=c("El Dorado", "Placer"))
+nev<- get_decennial(geography="tract", variables= c("H010001","P035001", "P001001","H001001","H013002", "H013003", "H013004", "H013005", "H013006", "H013007", "H013008"), state= "NV", year= 2010, county=c("Washoe", "Douglas"))
+all<- bind_rows(nev,ca) %>%
+  left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+  group_by(variable) %>% summarise(total=sum(value)) %>%
+  mutate(variable_name = case_when (variable== "H001001" ~ "Housing Units",
+                                    variable== "P001001" ~ "Total Population",
+                                    variable== "P035001" ~ "Families",
+                                    variable== "H010001" ~ "Population in Occupied Housing units",
+                                    variable== "H013002" ~ "Household Size - 1 Person",
+                                    variable== "H013003" ~ "Household Size - 2 Person",
+                                    variable== "H013004" ~ "Household Size - 3 Person",
+                                    variable== "H013005" ~ "Household Size - 4 Person",
+                                    variable== "H013006" ~ "Household Size - 5 Person",
+                                    variable== "H013007" ~ "Household Size - 6 Person",
+                                    variable== "H013008" ~ "Household Size - 7 Person or More"),
+         `Data Source`= "2010 Decennial Census")
+datatable(all, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+```
+
+
+## All Available Variables: 2016 ACS Five Year Estimate
+
+Search through the list below to determine which variable(s) you want to analyze. You can download all of the variables 
+
+```{r, warning= F, message=F}
+acs_var <- load_variables(2016, "acs5", cache = TRUE)
+
+datatable(acs_var, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+```
+
+## All Available Variables: 2010 Decennial Survey
+
+Search through the list below to determine which variable(s) you want to analyze.
+
+```{r, warning= F, message=F}
+decen_var <- load_variables(2010, "sf1", cache = TRUE)
+datatable(decen_var, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+```
+ 
+
