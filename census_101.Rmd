@@ -70,7 +70,7 @@ all<- bind_rows(nv_decen,ca_decen, ca_acs, nv_acs) %>%
                                     variable== "P001001" ~ "Total Population",
                                     variable== "B01003_001" ~ "Total Population"))
 datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe')
 ```
@@ -97,9 +97,9 @@ work_transport <- c(Drive= "B08301_002",
     dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County) %>%
     data.frame() %>% select(-geometry.x) %>%
     mutate(source="2016 ACS 2016 5-year Estimate") %>%
-    group_by(variable) %>% summarise(number= sum(estimate), total=sum(summary_est))
+    group_by(variable,source) %>% summarise(number= sum(estimate), total=sum(summary_est))
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe')
 ```
@@ -128,7 +128,7 @@ hhsize<- c(`Household Size - 1 Person`="H013002",
     mutate(data_source="2010 Decennial Census") %>%
     group_by(variable, data_source) %>% summarise(number=sum(value), total=sum(summary_value))
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe')
 ```
