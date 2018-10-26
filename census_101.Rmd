@@ -68,11 +68,15 @@ all<- bind_rows(nv_decen,ca_decen, ca_acs, nv_acs) %>%
   group_by(variable, data_source) %>% summarise(total=sum(estimate), moe=sum(moe)) %>%
   mutate(variable_name = case_when (variable== "H001001" ~ "Housing Units",
                                     variable== "P001001" ~ "Total Population",
-                                    variable== "B01003_001" ~ "Total Population"))
+                                    variable== "B01003_001" ~ "Total Population"),
+         total=format(total, big.mark=",", scientific=FALSE),
+         moe=format(moe, big.mark=",", scientific=FALSE)) %>%
+  select(variable_name, variable, total,moe, data_source)
 datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe', 
+colnames = c('Variable Name', 'Code', 'Total', 'Margin of Error','Data Source'))
 ```
 
 ### Travel Mode to Work
@@ -91,17 +95,23 @@ work_transport <- c(Drive= "B08301_002",
   ca <- get_acs(geography = "tract", year=2016, 
                 variables = work_transport, summary_var = "B08301_001", 
                 state = "CA", geometry= TRUE)
-  all<- rbind(nv, ca) %>%
+   all<- rbind(nv, ca) %>%
     left_join(data.frame(tract), by="GEOID") %>%
     filter(!is.na(STATEFP)) %>%
     dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County) %>%
     data.frame() %>% select(-geometry.x) %>%
     mutate(source="2016 ACS 2016 5-year Estimate") %>%
-    group_by(variable,source) %>% summarise(number= sum(estimate), total=sum(summary_est))
+    group_by(variable,source ) %>% 
+    summarise(number= sum(estimate), total=sum(summary_est), moe=sum(moe)) %>%         
+    mutate(total=format(total, big.mark=",", scientific=FALSE),
+           number=format(number, big.mark=",", scientific=FALSE),
+         moe=format(moe, big.mark=",", scientific=FALSE)) %>%
+  select(variable, number, moe,total, source)
   datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe', 
+colnames= c ('Variable Name', 'Estimate', 'Margin of Error', 'Total Households','Data Source'))
 ```
 
 ### Household Size
@@ -119,18 +129,50 @@ hhsize<- c(`Household Size - 1 Person`="H013002",
   ca <- get_decennial(geography = "tract", year=2010, county=c("El Dorado", "Placer"),
                 variables = hhsize, summary_var = "H013001", 
                 state = "CA", geometry= F)
-  
   all<- bind_rows(nv, ca) %>%
     left_join(data.frame(tract), by="GEOID") %>%
     filter(!is.na(STATEFP)) %>%
     dplyr::select(GEOID, NAME.x, variable, value, County, summary_value) %>%
     data.frame() %>%
     mutate(data_source="2010 Decennial Census") %>%
-    group_by(variable, data_source) %>% summarise(number=sum(value), total=sum(summary_value))
+    group_by(variable, data_source) %>% summarise(number=sum(value), total=sum(summary_value)) %>%
+   mutate( total=format(total, big.mark=",", scientific=FALSE),
+           number=format(number, big.mark=",", scientific=FALSE)) %>%
+  select(variable, number, total, data_source)
+  
   datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
+```
+
+### Demographics: Race
+
+```{r, warning=F, message=F}
+race<- c(`White alone`="P003002",
+           `Black or African American alone`= "P003003",
+           `American Indian and Alaska Native alone`="P003004",
+            `Asian alone`= "P003005",
+            `Native Hawaiian and Other Pacific Islander alone`= "P003006",
+           `Some Other Race alone` = "P003007", 
+           `Two or More Races` = "P003008")
+  nv <- get_decennial(geography = "tract", year=2010, 
+                variables =  race, county=c("Washoe", "Douglas"),
+                state = "NV", geometry = F, summary_var="P003001" )
+  ca <- get_decennial(geography = "tract", year=2010, county=c("El Dorado", "Placer"),
+                variables = race, summary_var="P003001", 
+                state = "CA", geometry= F)
+  
+all<- bind_rows(nv, ca) %>%
+    left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    group_by(variable) %>% summarise(value=sum(value), total=sum(summary_value)) %>%
+    mutate(source="2010 Decennial Census")
+
+datatable(all, extensions = 'Buttons',
+rownames=F,options=list(dom='t', 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
 ```
 
 ## Browse ACS Variables
@@ -152,10 +194,26 @@ Search through the list below to determine which variable(s) you want to analyze
 
 ```{r, warning= F, message=F}
 decen_var <- load_variables(2010, "sf1", cache = TRUE)
+
 datatable(decen_var, extensions = 'Buttons',
 rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf'), 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe')
 ```
+
+## Tract Map
+```{r, message=F, warning=F}
+tmap_mode("view")
+tm_shape(tract)+ tm_polygons()
+
+```
+
+## Block Group Map
+```{r, message=F, warning=F}
+tmap_mode("view")
+tm_shape(block_group)+ tm_polygons()
+
+```
+
  
 
