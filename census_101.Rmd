@@ -1,14 +1,14 @@
 ---
-title: "Using Census Data 101"
+title: "Using Census Data at TRPA"
 author: "Tahoe Regional Planning Agency"
-date: "10-22-2018"
+date: "2018"
 output: 
   html_document:
     code_folding: hide
     highlight: tango
     number_sections: no
     theme: flatly
-    toc: yes
+    toc: no
     toc_depth: 3
     toc_float:
       collapsed: yes
@@ -29,12 +29,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definitely source of demographic data but only is collected every ten years. The ACS is a program that provides data estimates on a one,three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered. While the Decennial Census only includes basic demographic data such as number of households and total population, the ACS includes many more data points that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that define that variable.
+The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definite source of demographic data but only is collected every ten years; it includes a limited number of variables such as number of households and total population. The ACS is a program that provides data estimates on a one, three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered because the data is taken from a small sample of the total population. The ACS includes many more variables compared to the Decennial Census that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that characterize that variable.
 
 
 ```{r, warning=F, message=F, echo=F}
 library(pacman)
-p_load(tidycensus, tidyverse,leaflet, geojsonio, sf, tmap, tmaptools, DT)
+p_load(tidycensus, tidyverse,leaflet, geojsonio, sf, tmap, tmaptools, DT, xfun)
 census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
 options(tigris_use_cache = TRUE)
 
@@ -44,9 +44,9 @@ tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a585
   st_as_sf()
 ```
 
-## Summary Data
+### Summary of TRPA Census Data
 
-### Population and Housing
+#### Population and Housing
 ```{r, message=F, warning =F}
   nv_acs <- get_acs(geography = "tract", year=2016, 
                 variables =  "B01003_001", 
@@ -79,7 +79,7 @@ rownames=F,options=list(dom='t',
 colnames = c('Variable Name', 'Code', 'Total', 'Margin of Error','Data Source'))
 ```
 
-### Travel Mode to Work
+#### Travel Mode to Work
 ```{r, message=F, warning=F }
 work_transport <- c(Drive= "B08301_002",
                     Walk= "B08301_019",
@@ -114,7 +114,7 @@ rownames=F,options=list(dom='t',
 colnames= c ('Variable Name', 'Estimate', 'Margin of Error', 'Total Households','Data Source'))
 ```
 
-### Household Size
+#### Household Size
 ```{r, message=F, warning=F}
 hhsize<- c(`Household Size - 1 Person`="H013002",
            `Household Size - 2 Person`= "H013003",
@@ -146,7 +146,7 @@ rownames=F,options=list(dom='t',
   class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
 ```
 
-### Demographics: Race
+#### Demographics: Race
 
 ```{r, warning=F, message=F}
 race<- c(`White alone`="P003002",
@@ -175,7 +175,7 @@ rownames=F,options=list(dom='t',
   class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
 ```
 
-## Browse ACS Variables
+## Browse all ACS Variables
 
 Search through the list below to determine which variable(s) you want to analyze. You can download all of the variables 
 
@@ -188,7 +188,7 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
   class = 'cell-border stripe')
 ```
 
-## Browse Decennial Variables
+## Browse all Decennial Variables
 
 Search through the list below to determine which variable(s) you want to analyze.
 
@@ -201,18 +201,36 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
   class = 'cell-border stripe')
 ```
 
-## Tract Map
+## TRPA Census Tract
 ```{r, message=F, warning=F}
 tmap_mode("view")
-tm_shape(tract)+ tm_polygons()
+
+#leaflet(tract) %>% addPolygons() %>% addTiles()
+
+tm_shape(tract)+ tm_polygons() + tm_view(set.zoom.limits = c(9,16))
+```
+[Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3)
+```{r, message=F, warning=F}
+datatable(tract %>% data.frame() %>% select(GEOID, County) %>% mutate(Note="TRPA Census Tracts"), 
+          extensions = 'Buttons',
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
 
 ```
 
-## Block Group Map
+## TRPA Block Groups
 ```{r, message=F, warning=F}
 tmap_mode("view")
 tm_shape(block_group)+ tm_polygons()
-
+```
+[Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2)
+```{r, message=F, warning=F}
+datatable(block_group %>% data.frame() %>% select(GEOID, COUNTYFP) %>% mutate(Note="TRPA Block Groups"), 
+          extensions = 'Buttons',
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
 ```
 
  
