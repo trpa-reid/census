@@ -259,7 +259,7 @@ rent <- c(`No bedroom`= "B25068_002",
     dplyr::select(GEOID, NAME.x, variable, estimate, moe, County, summary_est) %>%
     data.frame() %>% select(-geometry.x) %>%
     mutate(source="2016 ACS 2016 5-year Estimate") %>%
-    group_by(variable,source ) %>% 
+    group_by(variable,source) %>% 
     summarise(number= sum(estimate), moe=sum(moe), summary_est=sum(summary_est)) %>%         
     mutate(number=format(number, big.mark=",", scientific=FALSE),
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
@@ -360,10 +360,18 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
 ## TRPA Census Tracts
 ```{r, message=F, warning=F}
 tmap_mode("view")
+popup1 <- paste0("<strong>GEOID: </strong>", 
+                     tract$GEOID) 
+leaflet(tract) %>% 
+  addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
+                   weight=1, fillOpacity = .5,
+              highlightOptions = highlightOptions(
+                color = "#F9D2D2", opacity = 1, weight = 2, fillOpacity = 1,
+                bringToFront = TRUE, sendToBack = TRUE)) %>% 
+  addProviderTiles("Wikimedia") %>% 
+  setView(-120.020493,39.041803,zoom=10)
 
-#leaflet(tract) %>% addPolygons() %>% addTiles()
-
-tm_shape(tract)+ tm_polygons() + tm_view(set.zoom.limits = c(9,16))
+#tm_shape(tract)+ tm_polygons() + tm_view(set.zoom.limits = c(9,16))
 ```
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3)
 ```{r, message=F, warning=F}
@@ -377,8 +385,18 @@ rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf')
 
 ## TRPA Block Groups
 ```{r, message=F, warning=F}
-tmap_mode("view")
-tm_shape(block_group)+ tm_polygons()
+#tmap_mode("view")
+#tm_shape(block_group)+ tm_polygons()
+popup1 <- paste0("<strong>GEOID: </strong>", 
+                     block_group$GEOID) 
+leaflet(block_group) %>% 
+  addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
+                   weight=1, fillOpacity = .5,
+              highlightOptions = highlightOptions(
+                color = "#F9D2D2", opacity = 1, weight = 2, fillOpacity = 1,
+                bringToFront = TRUE, sendToBack = TRUE)) %>% 
+  addProviderTiles("Wikimedia") %>% 
+  setView(-120.020493,39.041803,zoom=10)
 ```
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2)
 ```{r, message=F, warning=F}
