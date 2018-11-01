@@ -1,10 +1,10 @@
 ---
-title: "Using Census Data at TRPA"
+title: "Census Data at TRPA"
 author: "Tahoe Regional Planning Agency"
 date: "2018"
 output: 
   html_document:
-    code_folding: hide
+    #code_folding: hide
     highlight: tango
     number_sections: no
     theme: flatly
@@ -41,17 +41,18 @@ library(pacman)
 p_load(tidycensus, tidyverse,leaflet, geojsonio, sf, tmap, tmaptools, DT, xfun)
 census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
 options(tigris_use_cache = TRUE)
+tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3.geojson", what="sp") %>%
+  st_as_sf()
 
 block_group<-geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2.geojson", what="sp") %>% st_as_sf()
 
-tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3.geojson", what="sp") %>%
-  st_as_sf()
+
 ```
 
 ### Summary of TRPA Census Data
 
 #### Population
-```{r, message=F, warning =F}
+```{r, message=F, warning =F, echo=F}
   nv_acs <- get_acs(geography = "tract", year=2016, 
                 variables =  c("B01003_001"),
                 state = "NV", county=c("Washoe", "Douglas")) %>%
@@ -71,7 +72,8 @@ all<- bind_rows(nv_decen,ca_decen, ca_acs, nv_acs) %>%
     filter(!is.na(STATEFP)) %>%
   group_by(variable, data_source) %>% summarise(total=sum(estimate), moe=sum(moe)) %>%
   mutate(variable_name = case_when ( variable== "P001001" ~ "Total Population",
-                                    variable== "B01003_001" ~ "Total Population"),
+                                    variable== "B01003_001" ~ "Total Population",
+                                    variable== "B25060_001" ~ "rental units"),
          total=format(total, big.mark=",", scientific=FALSE),
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
   select(variable_name, variable, total,moe, data_source)
@@ -79,11 +81,43 @@ datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames = c('Variable Name', 'Code', 'Total', 'Margin of Error','Data Source'))
+colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
+```
+
+#### Households
+```{r, message=F, warning =F, echo=F}
+  nv_acs <- get_acs(geography = "tract", year=2016, 
+                variables =  c("B19001_001"),
+                state = "NV", county=c("Washoe", "Douglas")) %>%
+  mutate(data_source="2016 ACS 2016 5-year Estimate")
+ca_acs <- get_acs(geography = "tract", year=2016, 
+                variables =  c("B19001_001"),
+                state = "CA",county=c("El Dorado", "Placer")) %>%
+  mutate(data_source="2016 ACS 2016 5-year Estimate")
+ca_decen <- get_decennial(geography="tract", variables= c("H013001"), 
+                          state= "CA", year= 2010, county=c("El Dorado", "Placer")) %>% 
+  rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
+nv_decen <- get_decennial(geography="tract", variables= c("H013001"), 
+                          state= "NV", year= 2010, county=c("Washoe", "Douglas")) %>% 
+  rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
+all<- bind_rows(nv_decen,ca_decen, ca_acs, nv_acs) %>%
+  left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+  group_by(variable, data_source) %>% summarise(total=sum(estimate), moe=sum(moe)) %>%
+  mutate(variable_name = case_when ( variable== "H013001" ~ "Total Households",
+                                    variable== "B19001_001" ~ "Total Households"),
+         total=format(total, big.mark=",", scientific=FALSE),
+         moe=format(moe, big.mark=",", scientific=FALSE)) %>%
+  select(variable_name, variable, total,moe, data_source)
+datatable(all, extensions = 'Buttons',
+rownames=F,options=list(dom='t', 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe', 
+colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
 
 #### Housing 
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 ca_decen <- get_decennial(geography="tract", variables= c("H001001"), 
                           state= "CA", year= 2010, county=c("El Dorado", "Placer")) %>% 
   rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
@@ -102,11 +136,11 @@ datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames = c('Variable Name', 'Code', 'Total', 'Margin of Error','Data Source'))
+colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
 
 #### Income
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 income <- c(`Less than $10,000`= "B19001_002",
                     `$10,000 to $14,999`= "B19001_003",
                     `$15,000 to $19,999` = "B19001_004",
@@ -146,11 +180,11 @@ datatable(all, extensions = 'Buttons',
 rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames = c('Variable Name', 'Definition', 'Number of Households', 'Margin of Error','Total Households' ,'Data Source'))
+colnames = c('Category', 'Variable', 'Number of Households', 'Margin of Error','Total Households' ,'Source'))
 ```
 
 #### School Enrollment
-```{r, message=F, warning =F}
+```{r, message=F, warning =F, echo=F}
   nv_acs <- get_acs(geography = "tract", year=2016, 
                 variables =  c("B14001_001"),
                 state = "NV", county=c("Washoe", "Douglas")) %>%
@@ -171,11 +205,11 @@ datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames = c('Variable Name', 'Code', 'Total', 'Margin of Error','Data Source'))
+colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
 
 #### Travel Mode to Work
-```{r, message=F, warning=F }
+```{r, message=F, warning=F, echo=F }
 work_transport <- c(Drive= "B08301_002",
                     Walk= "B08301_019",
                     Bike = "B08301_018",
@@ -195,33 +229,29 @@ work_transport <- c(Drive= "B08301_002",
     filter(!is.na(STATEFP)) %>%
     dplyr::select(GEOID, NAME.x, variable, estimate, moe, summary_est, summary_moe, County) %>%
     data.frame() %>% select(-geometry.x) %>%
-    mutate(source="2016 ACS 2016 5-year Estimate") %>%
-    group_by(variable,source ) %>% 
+    mutate(source="2016 ACS 2016 5-year Estimate", category="Travel Mode to Work") %>%
+    group_by(category,variable,source ) %>% 
     summarise(number= sum(estimate), total=sum(summary_est), moe=sum(moe)) %>%         
     mutate(total=format(total, big.mark=",", scientific=FALSE),
            number=format(number, big.mark=",", scientific=FALSE),
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
-  select(variable, number, moe,total, source)
+  select(category,variable, number, moe,total, source)
   datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames= c ('Variable Name', 'Estimate', 'Margin of Error', 'Total Households','Data Source'))
+colnames= c ('Category','Variable', 'Worker Estimate', 'Margin of Error', 'Total Workers','Source'))
 ```
 
-#### Rental Costs
-```{r, message=F, warning=F }
-rent <- c(`No bedroom`= "B25068_002",
-          `No bedroom w/ cash rent`= "B25068_003",
-          `No bedroom - Less than $300`= "B25068_004",
+#### Median Gross Rental Costs
+```{r, message=F, warning=F , echo=F}
+rent <- c(`No bedroom - Less than $300`= "B25068_004",
                     `No bedroom - $300 to $499`= "B25068_005",
                     `No bedroom - $500 to $749` = "B25068_006",
                     `No bedroom - $750 to $999` = "B25068_007",
                     `No bedroom - $1,000 to $1,499` = "B25068_008",
                     `No bedroom - $1,500 or more` = "B25068_009",
                     `No bedroom - no cash rent` = "B25068_010",
-                    `1 bedroom` = "B25068_011",
-                    `1 bedroom w/ cash rent` = "B25068_012",
                     `1 bedroom - Less than $300` = "B25068_013", 
                     `1 bedroom - $300 to $499`= "B25068_014",
                     `1 bedroom - $500 to $749` = "B25068_015",
@@ -229,8 +259,6 @@ rent <- c(`No bedroom`= "B25068_002",
                     `1 bedroom - $1,000 to $1,499` = "B25068_017",
                     `1 bedroom - $1,500 or more` = "B25068_018",
                     `1 bedroom - no cash rent` = "B25068_019",
-                    `2 bedroom` = "B25068_020",
-                    `2 bedroom w/ cash rent` = "B25068_021",
                     `2 bedroom - Less than $300` = "B25068_022", 
                     `2 bedroom - $300 to $499`= "B25068_023",
                     `2 bedroom - $500 to $749` = "B25068_024",
@@ -238,8 +266,6 @@ rent <- c(`No bedroom`= "B25068_002",
                     `2 bedroom - $1,000 to $1,499` = "B25068_026",
                     `2 bedroom - $1,500 or more` = "B25068_027",
                     `2 bedroom - no cash rent` = "B25068_028",
-                    `3 bedroom or more` = "B25068_029",
-                    `3 bedroom or more w/ cash rent` = "B25068_030",
                     `3 or more bedroom - Less than $300` = "B25068_031", 
                     `3 or more bedroom - $300 to $499`= "B25068_032",
                     `3 or more bedroom - $500 to $749` = "B25068_033",
@@ -258,20 +284,58 @@ rent <- c(`No bedroom`= "B25068_002",
     filter(!is.na(STATEFP)) %>%
     dplyr::select(GEOID, NAME.x, variable, estimate, moe, County, summary_est) %>%
     data.frame() %>% select(-geometry.x) %>%
-    mutate(source="2016 ACS 2016 5-year Estimate") %>%
-    group_by(variable,source) %>% 
+    mutate(source="2016 ACS 2016 5-year Estimate", category="Rental Costs/Housing Type") %>%
+    group_by(category,variable,source) %>% 
     summarise(number= sum(estimate), moe=sum(moe), summary_est=sum(summary_est)) %>%         
     mutate(number=format(number, big.mark=",", scientific=FALSE),
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
-  select(variable, number, moe, summary_est, source)
+  select(category,variable, number, moe, summary_est, source)
   datatable(all, extensions = 'Buttons',
 rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
-colnames= c ('Variable Name', 'Estimate', 'Margin of Error', 'Total Estimate', 'Data Source'))
+colnames= c ('Category','Variable', 'Estimate', 'Margin of Error', 'Total Estimate', 'Source'))
 ```
+
+#### Rent as Percent of Household Income
+```{r, message=F, warning=F, echo=F }
+rent <- c(`Less than 10%`= "B25070_002",
+                    `10-14.9%`= "B25070_003",
+                    `15-19.9%` = "B25070_004",
+                    `20-24.9%` = "B25070_005",
+                    `25-29.9%` = "B25070_006",
+                    `30-34.9%` = "B25070_007",
+                    `35-39.9%` = "B25070_008",
+                    `40-49.9%` = "B25070_009",
+                    `Over 50%` = "B25070_010",
+                    `Not Computed` = "B25070_011")
+  nv <- get_acs(geography = "tract", year=2016, 
+                variables = rent, summary_var = "B25070_001",
+                state = "NV", geometry = TRUE)
+  ca <- get_acs(geography = "tract", year=2016, 
+                variables = rent, summary_var = "B25070_001", 
+                state = "CA", geometry= TRUE)
+   all<- rbind(nv, ca) %>%
+    left_join(data.frame(tract), by="GEOID") %>%
+    filter(!is.na(STATEFP)) %>%
+    dplyr::select(GEOID, NAME.x, variable, estimate, moe, County, summary_est) %>%
+    data.frame() %>% select(-geometry.x) %>%
+    mutate(source="2016 ACS 2016 5-year Estimate", category="Rent as Percent of Household Income") %>%
+    group_by(category,variable,source) %>% 
+    summarise(number= sum(estimate), moe=sum(moe), summary_est=sum(summary_est)) %>%         
+    mutate(number=format(number, big.mark=",", scientific=FALSE),
+         moe=format(moe, big.mark=",", scientific=FALSE)) %>%
+  select(category,variable, number, moe, summary_est, source)
+  datatable(all, extensions = 'Buttons',
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'),
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe', 
+colnames= c ('Category','Number of Households', 'Estimate', 'Margin of Error', 'Total Househholds', 'Source'))
+```
+
 #### Household Size
-```{r, message=F, warning=F}
+
+```{r, message=F, warning=F, echo=F}
 hhsize<- c(`Household Size - 1 Person`="H013002",
            `Household Size - 2 Person`= "H013003",
            `Household Size - 3 Person`="H013004",
@@ -295,16 +359,15 @@ hhsize<- c(`Household Size - 1 Person`="H013002",
    mutate( total=format(total, big.mark=",", scientific=FALSE),
            number=format(number, big.mark=",", scientific=FALSE)) %>%
   select(variable, number, total, data_source)
-  
   datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
+  class = 'cell-border stripe', colnames = c('Variable Name', 'Number of Households', 'Total Regional Households','Source'))
 ```
 
 #### Demographics: Race
 
-```{r, warning=F, message=F}
+```{r, warning=F, message=F, echo=F}
 race<- c(`White alone`="P003002",
            `Black or African American alone`= "P003003",
            `American Indian and Alaska Native alone`="P003004",
@@ -318,7 +381,6 @@ race<- c(`White alone`="P003002",
   ca <- get_decennial(geography = "tract", year=2010, county=c("El Dorado", "Placer"),
                 variables = race, summary_var="P003001", 
                 state = "CA", geometry= F)
-  
 all<- bind_rows(nv, ca) %>%
     left_join(data.frame(tract), by="GEOID") %>%
     filter(!is.na(STATEFP)) %>%
@@ -328,14 +390,14 @@ all<- bind_rows(nv, ca) %>%
 datatable(all, extensions = 'Buttons',
 rownames=F,options=list(dom='t', 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe', colnames = c('Variable Name', 'Count', 'Total','Data Source'))
+  class = 'cell-border stripe', colnames = c('Variable Name', 'Population Count', 'Regional Population','Source'))
 ```
 
 ## Browse all ACS Variables
 
 Search through the list below to determine which variable(s) you want to analyze. You can download all of the variables 
 
-```{r, warning= F, message=F}
+```{r, warning= F, message=F, echo=F}
 acs_var <- load_variables(2016, "acs5", cache = TRUE)
 
 datatable(acs_var, extensions = 'Buttons',
@@ -348,7 +410,7 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
 
 Search through the list below to determine which variable(s) you want to analyze.
 
-```{r, warning= F, message=F}
+```{r, warning= F, message=F, echo=F}
 decen_var <- load_variables(2010, "sf1", cache = TRUE)
 
 datatable(decen_var, extensions = 'Buttons',
@@ -358,7 +420,7 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
 ```
 
 ## TRPA Census Tracts
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 tmap_mode("view")
 popup1 <- paste0("<strong>GEOID: </strong>", 
                      tract$GEOID) 
@@ -374,7 +436,7 @@ leaflet(tract) %>%
 #tm_shape(tract)+ tm_polygons() + tm_view(set.zoom.limits = c(9,16))
 ```
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3)
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 datatable(tract %>% data.frame() %>% select(GEOID, County) %>% mutate(Note="TRPA Census Tracts"), 
           extensions = 'Buttons',
 rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
@@ -384,7 +446,7 @@ rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf')
 ```
 
 ## TRPA Block Groups
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 #tmap_mode("view")
 #tm_shape(block_group)+ tm_polygons()
 popup1 <- paste0("<strong>GEOID: </strong>", 
@@ -399,7 +461,7 @@ leaflet(block_group) %>%
   setView(-120.020493,39.041803,zoom=10)
 ```
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2)
-```{r, message=F, warning=F}
+```{r, message=F, warning=F, echo=F}
 datatable(block_group %>% data.frame() %>% select(GEOID, COUNTYFP) %>% mutate(Note="TRPA Block Groups"), 
           extensions = 'Buttons',
 rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
