@@ -33,7 +33,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definite source of demographic data but only is collected every ten years; it includes a limited number of variables such as number of households and total population. The ACS is a program that provides data estimates on a one, three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered because the data is taken from a small sample of the total population. The ACS includes many more variables compared to the Decennial Census that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that characterize that variable.
+The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definite source of demographic data but only is collected every ten years; it includes a limited number of variables such as number of households and total population. The ACS is a program that provides data estimates on a one, three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered because the data is taken from a small sample of the total population. The ACS includes many more variables compared to the Decennial Census that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that characterize that variable. Currently, data is available for the ACS for years 2010-2016 and for the Decennial Census in 1990, 2000, & 2010. Additional data will be published here as it becomes available.
+
+Navigate the tabs at the top of this page to explore different aspects of the census data. The first tab displays a few high level data points. The two tabs to the right show all of the census variables that are available (there are thousands of available data points). To the far right, you can find the census GIS layers (tracts, block groups, & blocks). 
+
+This data is drawn from the Census APIs through the [tidycensus](https://walkerke.github.io/tidycensus/) package. All source code for this dashboard can be found on [github](https://github.com/trpa-reid/census).
 
 
 ```{r, warning=F, message=F, echo=F}
@@ -43,13 +47,15 @@ census_api_key("680398dff0a2f4c566f10c95888da7f25e55147b")
 options(tigris_use_cache = TRUE)
 tract <- geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3.geojson", what="sp") %>%
   st_as_sf()
-
 block_group<-geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2.geojson", what="sp") %>% st_as_sf()
+block<-geojson_read("https://opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_1.geojson", what="sp") %>% st_as_sf()
 
 
 ```
 
 ### Summary of TRPA Census Data
+
+________________________________________________________________________
 
 #### Population
 ```{r, message=F, warning =F, echo=F}
@@ -84,6 +90,8 @@ rownames=F,options=list(dom='t',
 colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
 
+________________________________________________________________________
+
 #### Households
 ```{r, message=F, warning =F, echo=F}
   nv_acs <- get_acs(geography = "tract", year=2016, 
@@ -116,6 +124,8 @@ rownames=F,options=list(dom='t',
 colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
 
+________________________________________________________________________
+
 #### Housing 
 ```{r, message=F, warning=F, echo=F}
 ca_decen <- get_decennial(geography="tract", variables= c("H001001"), 
@@ -138,6 +148,8 @@ rownames=F,options=list(dom='t',
   class = 'cell-border stripe', 
 colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
+
+________________________________________________________________________
 
 #### Income
 ```{r, message=F, warning=F, echo=F}
@@ -177,11 +189,13 @@ all<- bind_rows( ca_acs, nv_acs) %>%
   arrange(factor(variable, levels=income1)) %>%
   select(variable_name, variable, total,moe, total_estimate, data_source)
 datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),
+rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
 colnames = c('Category', 'Variable', 'Number of Households', 'Margin of Error','Total Households' ,'Source'))
 ```
+
+________________________________________________________________________
 
 #### School Enrollment
 ```{r, message=F, warning =F, echo=F}
@@ -207,6 +221,8 @@ rownames=F,options=list(dom='t',
   class = 'cell-border stripe', 
 colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
 ```
+
+________________________________________________________________________
 
 #### Travel Mode to Work
 ```{r, message=F, warning=F, echo=F }
@@ -237,11 +253,13 @@ work_transport <- c(Drive= "B08301_002",
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
   select(category,variable, number, moe,total, source)
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(dom='t', 
+rownames=F,options=list(dom = 'Bfrtip',buttons = c('csv','pdf'), searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
 colnames= c ('Category','Variable', 'Worker Estimate', 'Margin of Error', 'Total Workers','Source'))
 ```
+
+________________________________________________________________________
 
 #### Median Gross Rental Costs
 ```{r, message=F, warning=F , echo=F}
@@ -291,11 +309,13 @@ rent <- c(`No bedroom - Less than $300`= "B25068_004",
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
   select(category,variable, number, moe, summary_est, source)
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),
+rownames=F,options=list(pageLength = 8, dom = 'Bfrtip',buttons = c('csv','pdf'),searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
 colnames= c ('Category','Variable', 'Estimate', 'Margin of Error', 'Total Estimate', 'Source'))
 ```
+
+________________________________________________________________________
 
 #### Rent as Percent of Household Income
 ```{r, message=F, warning=F, echo=F }
@@ -327,11 +347,13 @@ rent <- c(`Less than 10%`= "B25070_002",
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
   select(category,variable, number, moe, summary_est, source)
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'),
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'),searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
 colnames= c ('Category','Number of Households', 'Estimate', 'Margin of Error', 'Total Househholds', 'Source'))
 ```
+
+________________________________________________________________________
 
 #### Household Size
 
@@ -360,10 +382,12 @@ hhsize<- c(`Household Size - 1 Person`="H013002",
            number=format(number, big.mark=",", scientific=FALSE)) %>%
   select(variable, number, total, data_source)
   datatable(all, extensions = 'Buttons',
-rownames=F,options=list(dom='t', 
+rownames=F,options=list(dom = 'Bfrtip',buttons = c('csv','pdf'), searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', colnames = c('Variable Name', 'Number of Households', 'Total Regional Households','Source'))
 ```
+
+________________________________________________________________________
 
 #### Demographics: Race
 
@@ -388,7 +412,7 @@ all<- bind_rows(nv, ca) %>%
     mutate(source="2010 Decennial Census")
 
 datatable(all, extensions = 'Buttons',
-rownames=F,options=list(dom='t', 
+rownames=F,options=list(dom = 'Bfrtip',buttons = c('csv','pdf'), searching = FALSE,
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', colnames = c('Variable Name', 'Population Count', 'Regional Population','Source'))
 ```
@@ -419,7 +443,7 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
   class = 'cell-border stripe')
 ```
 
-## TRPA Census Tracts
+## Tracts GIS
 ```{r, message=F, warning=F, echo=F}
 tmap_mode("view")
 popup1 <- paste0("<strong>GEOID: </strong>", 
@@ -445,7 +469,7 @@ rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf')
 
 ```
 
-## TRPA Block Groups
+## Block Groups GIS
 ```{r, message=F, warning=F, echo=F}
 #tmap_mode("view")
 #tm_shape(block_group)+ tm_polygons()
@@ -463,6 +487,30 @@ leaflet(block_group) %>%
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2)
 ```{r, message=F, warning=F, echo=F}
 datatable(block_group %>% data.frame() %>% select(GEOID, COUNTYFP) %>% mutate(Note="TRPA Block Groups"), 
+          extensions = 'Buttons',
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe')
+```
+
+## Blocks GIS
+```{r, message=F, warning=F, echo=F}
+#tmap_mode("view")
+#tm_shape(block_group)+ tm_polygons()
+popup1 <- paste0("<strong>GEOID: </strong>", 
+                     block$GEOID) 
+leaflet(block) %>% 
+  addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
+                   weight=1, fillOpacity = .5,
+              highlightOptions = highlightOptions(
+                color = "#F9D2D2", opacity = 1, weight = 2, fillOpacity = 1,
+                bringToFront = TRUE, sendToBack = TRUE)) %>% 
+  addProviderTiles("Wikimedia") %>% 
+  setView(-120.020493,39.041803,zoom=10)
+```
+[Download the Data Tahoe Open Data](http://www.tahoeopendata.org/datasets/85a2e8e4bf994742a5855c1339517681_1)
+```{r, message=F, warning=F, echo=F}
+datatable(block %>% data.frame() %>% select(GEOID) %>% mutate(Note="TRPA Blocks"), 
           extensions = 'Buttons',
 rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
