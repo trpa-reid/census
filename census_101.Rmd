@@ -1,18 +1,20 @@
 ---
 title: "Census Data at TRPA"
 author: "Tahoe Regional Planning Agency"
-date: "2018"
-output: 
+date: '2018'
+output:
   html_document:
-    #code_folding: hide
     highlight: tango
     number_sections: no
-    theme: flatly
+    theme: yeti
     toc: no
     toc_depth: 3
     toc_float:
       collapsed: yes
       smooth_scroll: no
+  pdf_document:
+    toc: no
+    toc_depth: '3'
 ---
 
 ```{css, echo=FALSE}
@@ -31,7 +33,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # {.tabset}
 
-## Introduction
+## Overview
 
 The U.S. Census Bureau collects and distributes data under a handful of different programs. Two of the more commonly used programs are the [Decennial Census](https://www.census.gov/history/www/programs/demographic/decennial_census.html) and the [American Community Survey (ACS)](https://www.census.gov/programs-surveys/acs/). The Decennial Census is a definite source of demographic data but only is collected every ten years; it includes a limited number of variables such as number of households and total population. The ACS is a program that provides data estimates on a one, three, and five year timeline; ACS data is collected more frequently but the data estimates have a margin of error that must considered because the data is taken from a small sample of the total population. The ACS includes many more variables compared to the Decennial Census that relate to transportation, income, and housing. Both the Decennial and ACS datasets have similiar data structures. Each row in both datasets include a particular variable and a number the indicates the total number of households or persons that characterize that variable. Currently, data is available for the ACS for years 2010-2016 and for the Decennial Census in 1990, 2000, & 2010. The 2017 ACS 5-year estimate will be published in December of 2018.
 
@@ -159,7 +161,7 @@ all<- bind_rows(nv_decen,ca_decen, ca_acs, nv_acs) %>%
          moe=format(moe, big.mark=",", scientific=FALSE)) %>%
   select(variable_name, variable, total,moe, data_source)
 datatable(all, extensions = 'Buttons',
-rownames=F,options=list(dom='t', 
+rownames=F,options=list(dom = 'Bfrtip',buttons = c('csv','pdf'),
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', 
 colnames = c('Category', 'Code', 'Total', 'Margin of Error','Source'))
@@ -395,6 +397,7 @@ rownames=F,options=list(dom = 'Bfrtip',buttons = c('csv','pdf'), searching = FAL
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
   class = 'cell-border stripe', colnames = c('Variable Name', 'Population Count', 'Regional Population','Source'))
 ```
+
 ________________________________________________________________________
 
 #### Travel Mode to Work
@@ -434,7 +437,7 @@ colnames= c ('Category','Variable', 'Worker Estimate', 'Margin of Error', 'Total
 
 
 
-## Browse all ACS Variables
+## Browse ACS Variables
 
 Search through the list below to determine which variable(s) you want to analyze. You can download all of the variables 
 
@@ -447,7 +450,7 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
   class = 'cell-border stripe')
 ```
 
-## Browse all Decennial Variables
+## Browse Decennial Variables
 
 Search through the list below to determine which variable(s) you want to analyze.
 
@@ -464,8 +467,6 @@ rownames=F,options=list(pageLength = 15, dom = 'Bfrtip',buttons = c('csv','pdf')
 ```{r, message=F, warning=F, echo=F}
 tmap_mode("view")
 
-
-#### Population
 ca_decen <- get_decennial(geography="tract", variables= c("P001001", "H013001","H001001"), 
                           state= "CA", year= 2010, county=c("El Dorado", "Placer")) %>% 
   rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
@@ -483,7 +484,8 @@ all<- bind_rows(nv_decen,ca_decen) %>%
 tract_map<-tract %>%
   left_join(all, by="GEOID") %>%
   select(GEOID, P001001,H013001,H001001)
-popup1 <- paste0("<strong>Population (2010 Decennial): </strong>", tract_map$P001001,
+popup1 <- paste0("<strong>GEOID: </strong>", tract_map$GEOID,
+                 "<br><strong>Population (2010 Decennial): </strong>", tract_map$P001001,
                  "<br><strong>Households (2010 Decennial): </strong>", tract_map$H013001,
                  "<br><strong>Housing Units (2010 Decennial): </strong>", tract_map$H001001) 
 leaflet(tract_map) %>% 
@@ -494,52 +496,45 @@ leaflet(tract_map) %>%
                 bringToFront = TRUE, sendToBack = TRUE)) %>% 
   addProviderTiles("Wikimedia") %>% 
   setView(-120.020493,39.041803,zoom=10)
-
-
-
-#tm_shape(tract)+ tm_polygons() + tm_view(set.zoom.limits = c(9,16))
 ```
 [Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_3)
 ```{r, message=F, warning=F, echo=F}
-datatable(tract_map %>% data.frame() %>% mutate(Note="TRPA Census Tracts"), 
+datatable(tract_map %>% data.frame() %>% mutate(Note="TRPA Census Tracts") %>%
+            select(-geometry), 
           extensions = 'Buttons',
 rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe',
+colnames= c ('GEOID','Population (2010 Decen)', 'Households (2010 Decen)', 'Housing Units (2010 Decen)', 'Source'))
 
 ```
 
 ## Block Groups GIS
 ```{r, message=F, warning=F, echo=F}
-#tmap_mode("view")
-#tm_shape(block_group)+ tm_polygons()
-popup1 <- paste0("<strong>GEOID: </strong>", 
-                     block_group$GEOID) 
-leaflet(block_group) %>% 
-  addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
-                   weight=1, fillOpacity = .5,
-              highlightOptions = highlightOptions(
-                color = "#F9D2D2", opacity = 1, weight = 2, fillOpacity = 1,
-                bringToFront = TRUE, sendToBack = TRUE)) %>% 
-  addProviderTiles("Wikimedia") %>% 
-  setView(-120.020493,39.041803,zoom=10)
-```
-[Download the Data Tahoe Open Data](http://data-trpa.opendata.arcgis.com/datasets/85a2e8e4bf994742a5855c1339517681_2)
-```{r, message=F, warning=F, echo=F}
-datatable(block_group %>% data.frame() %>% select(GEOID, COUNTYFP) %>% mutate(Note="TRPA Block Groups"), 
-          extensions = 'Buttons',
-rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
-          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
-```
+tmap_mode("view")
 
-## Blocks GIS
-```{r, message=F, warning=F, echo=F}
-#tmap_mode("view")
-#tm_shape(block_group)+ tm_polygons()
-popup1 <- paste0("<strong>GEOID: </strong>", 
-                     block$GEOID) 
-leaflet(block) %>% 
+ca_acs <- get_acs(geography="block group", variables= c("B01003_001","B25002_001","B19001_001"), 
+                          state= "CA", year= 2016, county=c("El Dorado", "Placer")) %>% 
+   mutate(moe=0, data_source="2016 ACS")
+nv_acs <- get_acs(geography="block group", variables= c("B01003_001","B25002_001","B19001_001"), 
+                          state= "NV", year= 2016, county=c("Washoe", "Douglas")) %>% 
+   mutate(moe=0, data_source="2016 ACS")
+all<- bind_rows(nv_acs,ca_acs) %>%
+  left_join(data.frame(block_group), by="GEOID") %>%
+    filter(!is.na(OBJECTID)) %>%
+  mutate(variable_name = case_when (variable== "B01003_001" ~ "Total Population",
+                                    variable== "B19001_001" ~ "Households",
+                                    variable== "B25002_001" ~ "Housing Units")) %>%
+  select(GEOID, estimate, variable) %>%
+  spread(variable, estimate)
+bg_map<-block_group %>%
+  left_join(all, by="GEOID") %>%
+  select(GEOID, B01003_001,B19001_001,B25002_001)
+popup1 <- paste0("<strong>GEOID: </strong>", bg_map$GEOID,
+                 "<br><strong>Population (2016 ACS): </strong>", bg_map$B01003_001,
+                 "<br><strong>Households (2016 ACS): </strong>", bg_map$B19001_001,
+                 "<br><strong>Housing Units (2016 ACS): </strong>", bg_map$B25002_001) 
+leaflet(bg_map) %>% 
   addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
                    weight=1, fillOpacity = .5,
               highlightOptions = highlightOptions(
@@ -550,12 +545,63 @@ leaflet(block) %>%
 ```
 [Download the Data Tahoe Open Data](http://www.tahoeopendata.org/datasets/85a2e8e4bf994742a5855c1339517681_1)
 ```{r, message=F, warning=F, echo=F}
-datatable(block %>% data.frame() %>% select(GEOID) %>% mutate(Note="TRPA Blocks"), 
+datatable(bg_map %>% data.frame() %>% mutate(Note="TRPA Census Block Groups") %>%
+            select(-geometry), 
           extensions = 'Buttons',
 rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
           columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
-  class = 'cell-border stripe')
+  class = 'cell-border stripe',
+colnames= c ('GEOID','Population (2016 ACS)', 'Households (2016 ACS)', 'Housing Units (2016 ACS)', 'Source'))
 ```
+
+
+## Block GIS
+```{r, message=F, warning=F, echo=F}
+tmap_mode("view")
+
+ca_decen <- get_decennial(geography="block", variables= c("P001001", "H013001","H001001"), 
+                          state= "CA", year= 2010, county=c("El Dorado", "Placer")) %>% 
+  rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
+nv_decen <- get_decennial(geography="block", variables= c("P001001", "H013001", "H001001"), 
+                          state= "NV", year= 2010, county=c("Washoe", "Douglas")) %>% 
+  rename(estimate=value) %>% mutate(moe=0, data_source="2010 Decennial Census")
+all<- bind_rows(nv_decen,ca_decen) %>%
+  left_join(data.frame(block), by="GEOID") %>%
+    filter(!is.na(OBJECTID)) %>%
+  mutate(variable_name = case_when (variable== "P001001" ~ "Total Population",
+                                    variable== "H013001" ~ "Households",
+                                    variable== "H001001" ~ "Housing Units")) %>%
+  select(GEOID, estimate, variable) %>%
+  spread(variable, estimate)
+block_map<-block %>%
+  left_join(all, by="GEOID") %>%
+  select(GEOID, P001001,H013001,H001001)
+popup1 <- paste0("<strong>GEOID: </strong>", block_map$GEOID,
+                 "<strong>Population (2010 Decennial): </strong>", block_map$P001001,
+                 "<br><strong>Households (2010 Decennial): </strong>", block_map$H013001,
+                 "<br><strong>Housing Units (2010 Decennial): </strong>", block_map$H001001) 
+leaflet(block_map) %>% 
+  addPolygons(popup=popup1,color="white", opacity=1,fillColor = "#bc0114",
+                   weight=1, fillOpacity = .5,
+              highlightOptions = highlightOptions(
+                color = "#F9D2D2", opacity = 1, weight = 2, fillOpacity = 1,
+                bringToFront = TRUE, sendToBack = TRUE)) %>% 
+  addProviderTiles("Wikimedia") %>% 
+  setView(-120.020493,39.041803,zoom=10)
+```
+[Download the Data Tahoe Open Data](http://www.tahoeopendata.org/datasets/85a2e8e4bf994742a5855c1339517681_1)
+```{r, message=F, warning=F, echo=F}
+datatable(block_map %>% data.frame() %>% mutate(Note="TRPA Census Blocks") %>%
+            select(-geometry), 
+          extensions = 'Buttons',
+rownames=F,options=list(pageLength = 10, dom = 'Bfrtip',buttons = c('csv','pdf'), 
+          columnDefs = list(list(className = 'dt-center', targets = 0:1))), 
+  class = 'cell-border stripe',
+colnames= c ('GEOID','Population (2010 Decen)', 'Households (2010 Decen)', 'Housing Units (2010 Decen)', 'Source'))
+
+```
+
+
 
  
 
